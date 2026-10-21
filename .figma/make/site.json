@@ -1,0 +1,10 @@
+{
+  "description": "Explore and order authentic regional Indian dishes in Bengaluru through an interactive map highlighting live states and hidden culinary gems.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
