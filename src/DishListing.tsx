@@ -78,14 +78,14 @@ function SkeletonCard() {
 }
 
 export default function DishListing({
-  stateName,
+  cuisine,
   stateCode,
   dishName,
   onBack,
   cart,
   setCart,
 }: {
-  stateName: string;
+  cuisine: string;
   stateCode: string;
   dishName: string;
   onBack: () => void;
@@ -118,7 +118,7 @@ export default function DishListing({
         </button>
         <div className="listing-titles">
           <h1>{dishName}</h1>
-          <p>{stateName} · {listings.length} restaurants near you</p>
+          <p>{cuisine} · {listings.length} restaurants near you in Bengaluru</p>
         </div>
       </header>
       <div className={`listing-scroll${totalQty > 0 ? " with-cart" : ""}`}>
@@ -144,7 +144,7 @@ const LISTING_STYLES = String.raw`
 .listing-header{flex:none;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px}
 .listing-titles{min-width:0}
 .listing-titles h1{margin:0;font-size:24px;line-height:1.2;font-weight:800;color:#1F1A1C}
-.listing-titles p{margin:2px 0 0;font-size:14px;line-height:1.3;color:#5F5A5C}
+.listing-titles p{margin:2px 0 0;font-size:14px;line-height:1.3;color:#5F5A5C;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .listing-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:none;scrollbar-width:none;padding:8px 16px calc(24px + env(safe-area-inset-bottom))}
 .listing-scroll::-webkit-scrollbar{display:none}
 .listing-scroll.with-cart{padding-bottom:calc(92px + env(safe-area-inset-bottom))}

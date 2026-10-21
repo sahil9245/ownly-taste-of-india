@@ -9,6 +9,7 @@ import { dishImagePath, slugify } from "./data/dishListings";
 type Dish = { name: string; gem?: boolean };
 type StateData = {
   name: string;
+  cuisine: string;
   tagline: string;
   image?: string;
   dishes: Dish[];
@@ -24,6 +25,7 @@ const DATA = {
   states: {
     KA: {
       name: "Karnataka",
+      cuisine: "Kannadiga",
       tagline: "Ragi, rice and a coastline full of spice.",
       image: "",
       dishes: [
@@ -38,6 +40,7 @@ const DATA = {
     },
     KL: {
       name: "Kerala",
+      cuisine: "Kerala",
       tagline: "Coconut, curry leaves and slow backwater simmers.",
       image: "",
       dishes: [
@@ -52,6 +55,7 @@ const DATA = {
     },
     AP: {
       name: "Andhra Pradesh",
+      cuisine: "Andhra",
       tagline: "Fiery, tangy and unapologetically bold.",
       image: "",
       dishes: [
@@ -65,6 +69,7 @@ const DATA = {
     },
     TG: {
       name: "Telangana",
+      cuisine: "Hyderabadi",
       tagline: "Nawabi kitchens and Deccan chai.",
       image: "",
       dishes: [
@@ -78,6 +83,7 @@ const DATA = {
     },
     TN: {
       name: "Tamil Nadu",
+      cuisine: "Tamil",
       tagline: "Temple-town breakfasts and Chettinad pepper.",
       image: "",
       dishes: [
@@ -91,6 +97,7 @@ const DATA = {
     },
     PB: {
       name: "Punjab",
+      cuisine: "Punjabi",
       tagline: "Butter, tandoor and big-hearted portions.",
       image: "",
       dishes: [
@@ -104,6 +111,7 @@ const DATA = {
     },
     MH: {
       name: "Maharashtra",
+      cuisine: "Maharashtrian",
       tagline: "Street-smart snacks and Kolhapuri heat.",
       image: "",
       dishes: [
@@ -116,6 +124,7 @@ const DATA = {
     },
     WB: {
       name: "West Bengal",
+      cuisine: "Bengali",
       tagline: "Mustard, fish and always a sweet ending.",
       image: "",
       dishes: [
@@ -128,6 +137,7 @@ const DATA = {
     },
     UP: {
       name: "Uttar Pradesh",
+      cuisine: "Awadhi",
       tagline: "Slow-cooked Awadhi elegance from Lucknow.",
       image: "",
       dishes: [
@@ -138,6 +148,7 @@ const DATA = {
     },
     GJ: {
       name: "Gujarat",
+      cuisine: "Gujarati",
       tagline: "Sweet, savoury and served on a thali.",
       image: "",
       dishes: [{ name: "Gujarati thali" }, { name: "Khaman dhokla" }],
@@ -418,7 +429,7 @@ export default function App() {
           )}
           {current.type === "listing" && (
             <DishListing
-              stateName={DATA.states[current.stateCode as keyof typeof DATA.states].name}
+              cuisine={DATA.states[current.stateCode as keyof typeof DATA.states].cuisine}
               stateCode={current.stateCode}
               dishName={current.dish.name}
               onBack={back}
@@ -491,7 +502,7 @@ const PIN_COORDS: Record<string, [number, number]> = {
   GJ: [71.5, 22.6],
   PB: [75.4, 30.8],
   UP: [80.5, 27.0],
-  WB: [87.9, 23.0],
+  WB: [87.9, 24.0],
 };
 
 const GEO = indiaStates as unknown as ExtendedFeatureCollection<ExtendedFeature<GeoGeometryObjects, { name: string }>>;
@@ -543,7 +554,7 @@ function buildGeo(w: number, h: number): MapGeo {
   const pinRects: Record<string, Rect> = {};
   for (const code of codes) {
     const [x, y] = projection(PIN_COORDS[code]) ?? [0, 0];
-    pins[code] = { x, y, side: "r", dy: 0, labelW: labelWidth(DATA.states[code as keyof typeof DATA.states].name) };
+    pins[code] = { x, y, side: "r", dy: 0, labelW: labelWidth(DATA.states[code as keyof typeof DATA.states].cuisine) };
     pinRects[code] = { l: x - (pw * SELECTED_SCALE) / 2 - 1, r: x + (pw * SELECTED_SCALE) / 2 + 1, t: y - ph * SELECTED_SCALE - 1, b: y + 1 };
   }
 
@@ -654,7 +665,7 @@ function MapScreen(props: MapProps) {
     >
       <header className="map-header">
         <button type="button" className="circle-button" aria-label="Back" onClick={props.onBack}><Icon name="back" /></button>
-        <div className="map-heading"><h1>Taste of India</h1><p>10 states delivering in Bengaluru</p></div>
+        <div className="map-heading"><h1>Taste of India</h1><p>{Object.keys(DATA.states).length} regional cuisines, cooked in Bengaluru</p></div>
         <div className="segment" aria-label="View">
           <button type="button" className={viewMode === "map" ? "active" : ""} onClick={() => !spinning && props.onViewMode("map")}>Map</button>
           <button type="button" className={viewMode === "grid" ? "active" : ""} onClick={() => props.onViewMode("grid")}>Grid</button>
@@ -754,7 +765,7 @@ function IndiaMap({
             onClick={() => onSelect(code)}
           >
             <PinIcon scale={geo.ps} />
-            <b style={labelStyle}>{name}</b>
+            <b style={labelStyle}>{DATA.states[code as keyof typeof DATA.states].cuisine}</b>
           </button>
         );
       })}
@@ -799,7 +810,7 @@ function StateGrid({
       {DATA.spinOrder.map((code) => {
         const state: StateData = DATA.states[code as keyof typeof DATA.states];
         const gems = state.dishes.filter((dish) => dish.gem).length;
-        const favourites = plural(state.dishes.length, "local favourite", "local favourites");
+        const favourites = plural(state.dishes.length, `${state.cuisine} favourite`, `${state.cuisine} favourites`);
         const isSelected = selected === code && !spinning;
         const isHighlight = highlighted === code && spinning;
         return (
@@ -819,6 +830,7 @@ function StateGrid({
             <strong>{state.name}</strong>
             <small>{state.tagline}</small>
             <em>{favourites}</em>
+            <span className="grid-kitchens">{state.cuisine} kitchens near you</span>
           </button>
         );
       })}
@@ -979,8 +991,8 @@ function Sheet(props: SheetProps) {
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" fill="currentColor" /><circle cx="12" cy="10" r="2.6" fill="#FDE7F0" /></svg>
       </span>
       <div className="welcome-text">
-        <strong>India’s regional food, all in one place.</strong>
-        <span>Tap a state to explore its dishes and order.</span>
+        <strong>Taste India without leaving Bengaluru.</strong>
+        <span>Tap a state to find its best dishes at restaurants near you.</span>
       </div>
     </div>
   ) : result ? (
@@ -989,7 +1001,7 @@ function Sheet(props: SheetProps) {
     <div className="selected-state">
       <h2>{liveState.name}</h2>
       <p>{liveState.tagline}</p>
-      <div className="meta">{liveState.dishes.length} local favourites · [X] restaurants near you</div>
+      <div className="meta">{plural(liveState.dishes.length, `${liveState.cuisine} favourite`, `${liveState.cuisine} favourites`)} · from [X] {liveState.cuisine} kitchens in Bengaluru</div>
       <div className="dish-row">
         {liveState.dishes.map((dish) => (
           <button type="button" className="dish-card" key={dish.name} onClick={() => props.onDish(dish, selected)}>
@@ -1174,7 +1186,7 @@ button:focus-visible{outline:3px solid #FFB300;outline-offset:2px}
 .surprise-float{position:absolute;z-index:4;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);transition:opacity .2s ease-out,visibility 0s}.sheet-open .surprise-float{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease-out,visibility 0s .2s}
 .dark-button{border:0;border-radius:14px;background:#1F1A1C;color:#fff;width:100%;height:50px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px}
 .coming-state h2,.selected-state h2,.result-state h2{font-size:22px;line-height:1.15;margin:3px 44px 7px 0}.coming-state p,.selected-state>p{font-size:13px;line-height:1.45;color:#5F5A5C;margin:0}
-.sheet-close{position:absolute;z-index:2;right:10px;top:4px;width:44px;height:44px;border-radius:50%;border:0;background:#F5F2F3;display:grid;place-items:center}.meta{font-size:11px;color:#8E0F3F;font-weight:700;margin:8px 0 10px}
+.sheet-close{position:absolute;z-index:2;right:10px;top:4px;width:44px;height:44px;border-radius:50%;border:0;background:#F5F2F3;display:grid;place-items:center}.meta{font-size:11px;color:#8E0F3F;font-weight:700;margin:8px 0 10px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .dish-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:1px 3px 6px 1px}.dish-card{border:0;background:#fff;padding:0;width:128px;min-width:128px;text-align:left;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(74,35,51,.07)}.dish-image{height:84px;border-radius:13px 13px 0 0;background:#FDE7F0;color:#8E0F3F;display:grid;place-items:center;position:relative;overflow:hidden}.dish-image img{width:100%;height:100%;object-fit:cover}.dish-image span{position:absolute;left:6px;bottom:6px;background:#1F1A1C;color:#fff;border-radius:999px;font-size:8px;padding:4px 6px;font-weight:800}.dish-card strong{font-size:12px;line-height:1.2;display:block;padding:8px}
 .vote-button{height:48px;width:100%;border:2px solid #8E0F3F;color:#8E0F3F;background:#fff;border-radius:14px;margin-top:15px;font-weight:800}.vote-button.voted{background:#E3DDE0;border-color:transparent;color:#4E484B}
 .result-state h2{margin:2px 0 8px}.result-card{display:grid;grid-template-columns:96px 1fr;gap:11px;align-items:center}.result-card .photo{height:100px}.result-card strong{display:block;font-size:16px}.result-card p{font-size:11px;color:#5F5A5C;line-height:1.35;margin:4px 0}.result-card b{font-size:11px;color:#8E0F3F}.dark-button{height:44px;background:#1F1A1C;margin-top:9px}
@@ -1190,6 +1202,7 @@ button:focus-visible{outline:3px solid #FFB300;outline-offset:2px}
 .grid-card strong{font-size:16px;font-weight:800;line-height:1.2;color:#1F1A1C}
 .grid-card small{font-size:13px;line-height:1.35;color:#5F5A5C;margin:4px 0 8px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .grid-card em{font-size:12px;font-weight:600;font-style:normal;color:#8E0F3F;margin-top:auto}
+.grid-card .grid-kitchens{margin-top:2px;font-size:12px;line-height:1.3;color:#6B6467;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}
 .detail-screen{position:relative}.detail-hero{height:240px;position:relative;flex:none}.hero-back{position:absolute;left:16px;top:16px}.gem-badge{position:absolute;left:16px;bottom:14px;background:#1F1A1C;color:#fff;padding:7px 11px;border-radius:999px;font-size:11px;font-weight:800}
 .detail-scroll{overflow-y:auto;padding:18px 16px 100px;scrollbar-width:none}.detail-scroll h1{font-size:28px;line-height:1.05;margin:0 0 5px}.pronunciation{font-size:12px;color:#8E0F3F;font-weight:700;margin:0 0 14px}.story{font-size:14px;line-height:1.55;color:#4E484B}.tag-row{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}.tag-row span{background:#F5F2F3;border-radius:999px;padding:8px 10px;font-size:10px;font-weight:700}.offer{background:#FDE7F0;border-radius:16px;padding:14px;color:#8E0F3F}.offer strong,.offer span{display:block;font-size:13px}.offer span{font-size:12px;margin-top:2px}
 .restaurants{margin-top:23px}.restaurants h2,.more-section h2{font-size:19px;margin:0}.restaurants>p{font-size:11px;color:#5F5A5C;margin:3px 0 10px}.restaurant-row{display:grid;grid-template-columns:58px 1fr auto;align-items:center;gap:10px;min-height:82px;border-bottom:1px solid #EDE7EA}.thumb{width:58px;height:58px;background:#FFF1D6;border-radius:13px;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover}.restaurant-row strong,.restaurant-row span{display:block}.restaurant-row strong{font-size:12px}.restaurant-row span{font-size:10px;color:#5F5A5C;margin-top:4px}.add-button{width:62px;height:40px;border:2px solid #D81B60;background:#fff;color:#C2185B;border-radius:11px;font-weight:800}.stepper{height:40px;border:2px solid #D81B60;border-radius:11px;display:flex;align-items:center;color:#C2185B;font-weight:800}.stepper button{width:32px;height:36px;border:0;background:transparent;font-weight:800}.stepper span{color:#8E0F3F;margin:0;font-size:12px}.more-section{margin-top:23px}.more-section .chips{margin-top:10px;flex-wrap:wrap}.cart-bar{position:absolute;bottom:14px;left:16px;right:16px;width:calc(100% - 32px);height:56px;border:0;background:#1F1A1C;color:#fff;border-radius:16px;padding:0 18px;display:flex;justify-content:space-between;align-items:center;font-weight:800}
