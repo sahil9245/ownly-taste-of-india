@@ -12,6 +12,8 @@ export type Listing = {
   image: string;
 };
 
+export type Cart = Record<string, { qty: number; price: number }>;
+
 export const MAX_LISTINGS = 10;
 
 export function slugify(text: string) {
@@ -151,4 +153,12 @@ export function getListings(dishName: string, stateCode: string): Listing[] {
   listings.sort((a, b) => b.rating - a.rating || b.ratingCount - a.ratingCount);
   cache.set(key, listings);
   return listings;
+}
+
+// Unique restaurants serving any of the given dishes in a state, or null when there is no restaurant data for it.
+export function kitchenCount(stateCode: string, dishNames: readonly string[]): number | null {
+  if (!NAMES[stateCode]) return null;
+  const names = new Set<string>();
+  for (const dishName of dishNames) for (const listing of getListings(dishName, stateCode)) names.add(listing.name);
+  return names.size || null;
 }

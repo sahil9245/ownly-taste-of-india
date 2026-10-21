@@ -42,10 +42,5 @@ function PlateMark({ size }: { size: number }) {
 // Shared by every dish card: the real photo when `src` exists, otherwise the soft pink plate placeholder. Fills its parent.
 export default function DishImage({ src, size = 44, alt = "" }: { src: string; size?: number; alt?: string }) {
   const url = useImageIfExists(src);
-  return <div className="dish-img">{url ? <img src={url} alt={alt} draggable={false} /> : <PlateMark size={size} />}</div>;
+  return <div className="dish-img">{url ? <img src={url} alt={alt} draggable={false} loading="lazy" decoding="async" /> : <PlateMark size={size} />}</div>;
 }
-
-export const DISH_IMAGE_STYLES = String.raw`
-.dish-img{width:100%;height:100%;background:#FDE7F0;color:#E58AAE;display:grid;place-items:center;overflow:hidden}
-.dish-img img{width:100%;height:100%;object-fit:cover;display:block}
-`;

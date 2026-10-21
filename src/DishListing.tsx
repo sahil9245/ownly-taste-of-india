@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import DishImage from "./DishImage";
 import type { Dispatch, SetStateAction } from "react";
 import { MAX_LISTINGS, formatCount, getListings, slugify } from "./data/dishListings";
-import type { Listing } from "./data/dishListings";
-
-type Cart = Record<string, number>;
+import type { Cart, Listing } from "./data/dishListings";
 
 function VegMark({ veg }: { veg: boolean }) {
-  const color = veg ? "#1E8E3E" : "#B3261E";
+  const color = veg ? "#17803A" : "#B3261E";
   return (
     <svg className="vm" width="16" height="16" viewBox="0 0 16 16" aria-label={veg ? "Vegetarian" : "Non-vegetarian"} role="img">
       <rect x="1" y="1" width="14" height="14" rx="2.5" fill="#fff" stroke={color} strokeWidth="1.5" />
@@ -35,8 +33,8 @@ function BackMark() {
 
 function RestaurantCard({ listing, qty, onQty }: { listing: Listing & { dishName: string }; qty: number; onQty: (amount: number) => void }) {
   return (
-    <article className="rest-card">
-      <button type="button" className="card-hit" aria-label={`${listing.name}, ₹${listing.price}`} />
+    <article className="rest-card" aria-label={`${listing.name}, ${listing.dishName}, ₹${listing.price}`}>
+      <button type="button" className="card-hit" tabIndex={-1} aria-hidden="true" />
       <div className="card-media">
         <div className="card-img"><DishImage src={listing.image} /></div>
         {qty === 0 ? (
@@ -44,7 +42,7 @@ function RestaurantCard({ listing, qty, onQty }: { listing: Listing & { dishName
         ) : (
           <div className="add-pill stepper-pill" role="group" aria-label={`${listing.name} quantity`}>
             <button type="button" aria-label="Remove one" onClick={() => onQty(-1)}>−</button>
-            <span aria-live="polite">{qty}</span>
+            <span aria-live="polite" aria-label={`${qty} in cart`}>{qty}</span>
             <button type="button" aria-label="Add one" onClick={() => onQty(1)}>+</button>
           </div>
         )}
@@ -61,6 +59,10 @@ function RestaurantCard({ listing, qty, onQty }: { listing: Listing & { dishName
       </div>
     </article>
   );
+}
+
+function plural(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 function SkeletonCard() {
@@ -81,102 +83,73 @@ export default function DishListing({
   cuisine,
   stateCode,
   dishName,
+  description,
   onBack,
+  onCart,
   cart,
   setCart,
 }: {
   cuisine: string;
   stateCode: string;
   dishName: string;
+  description: string;
   onBack: () => void;
+  onCart: () => void;
   cart: Cart;
   setCart: Dispatch<SetStateAction<Cart>>;
 }) {
   const [loading, setLoading] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const id = window.setTimeout(() => setLoading(false), 300);
+    const id = window.setTimeout(() => setLoading(false), 180);
     return () => window.clearTimeout(id);
   }, [dishName]);
 
   const listings = getListings(dishName, stateCode).slice(0, MAX_LISTINGS);
   const cartKey = (listing: Listing) => `listing:${stateCode}:${listing.id}`;
-  const totalQty = Object.values(cart).reduce((total, qty) => total + qty, 0);
-  const change = (listing: Listing, amount: number) =>
+  const lines = Object.values(cart);
+  const totalQty = lines.reduce((total, line) => total + line.qty, 0);
+  const totalPrice = lines.reduce((total, line) => total + line.qty * line.price, 0);
+  const change = (listing: Listing, amount: number) => {
+    if (amount > 0) navigator.vibrate?.(8);
     setCart((old) => {
-      const next = Math.max(0, (old[cartKey(listing)] || 0) + amount);
-      const copy = { ...old, [cartKey(listing)]: next };
-      if (next === 0) delete copy[cartKey(listing)];
+      const key = cartKey(listing);
+      const next = Math.max(0, (old[key]?.qty ?? 0) + amount);
+      const copy = { ...old };
+      if (next === 0) delete copy[key];
+      else copy[key] = { qty: next, price: listing.price };
       return copy;
     });
+  };
 
   return (
     <div className="screen listing-screen" data-dish={slugify(dishName)}>
-      <style>{LISTING_STYLES}</style>
-      <header className="listing-header">
+      <header className={`listing-header${scrolled ? " scrolled" : ""}`}>
         <button type="button" className="circle-button" aria-label="Back" onClick={onBack}>
           <BackMark />
         </button>
         <div className="listing-titles">
           <h1>{dishName}</h1>
-          <p>{cuisine} · {listings.length} restaurants near you in Bengaluru</p>
+          <p>{cuisine} · {plural(listings.length, "restaurant", "restaurants")} near you in Bengaluru</p>
         </div>
+        <p className="listing-desc">{description}</p>
       </header>
-      <div className={`listing-scroll${totalQty > 0 ? " with-cart" : ""}`}>
+      <div className={`listing-scroll${totalQty > 0 ? " with-cart" : ""}`} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
+        {!loading && listings.length === 0 && <p className="listing-empty">No {cuisine} kitchens are serving {dishName} near you just yet. Try another dish.</p>}
         <div className="listing-grid">
           {loading
             ? listings.map((listing) => <SkeletonCard key={listing.id} />)
             : listings.map((listing) => (
-                <RestaurantCard key={listing.id} listing={{ ...listing, dishName }} qty={cart[cartKey(listing)] || 0} onQty={(amount) => change(listing, amount)} />
+                <RestaurantCard key={listing.id} listing={{ ...listing, dishName }} qty={cart[cartKey(listing)]?.qty ?? 0} onQty={(amount) => change(listing, amount)} />
               ))}
         </div>
       </div>
       {totalQty > 0 && (
-        <button type="button" className="listing-cart">
-          View cart · {totalQty} item{totalQty > 1 ? "s" : ""}
+        <button type="button" className="listing-cart" onClick={onCart}>
+          <span>View cart · {plural(totalQty, "item", "items")}</span>
+          <b key={totalPrice} className="bump">₹{totalPrice}</b>
         </button>
       )}
     </div>
   );
 }
-
-const LISTING_STYLES = String.raw`
-.listing-screen{position:relative;background:#fff}
-.listing-header{flex:none;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px}
-.listing-titles{min-width:0}
-.listing-titles h1{margin:0;font-size:24px;line-height:1.2;font-weight:800;color:#1F1A1C}
-.listing-titles p{margin:2px 0 0;font-size:14px;line-height:1.3;color:#5F5A5C;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.listing-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:none;scrollbar-width:none;padding:8px 16px calc(24px + env(safe-area-inset-bottom))}
-.listing-scroll::-webkit-scrollbar{display:none}
-.listing-scroll.with-cart{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
-.listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.rest-card{position:relative;min-width:0;padding-bottom:6px;transition:transform .12s ease-out;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-.rest-card:has(.card-hit:active){transform:scale(.98)}
-.card-hit{position:absolute;inset:0;z-index:1;border:0;padding:0;background:transparent;border-radius:16px;-webkit-tap-highlight-color:transparent}
-.card-media{position:relative}
-.card-img{aspect-ratio:1/1;border-radius:16px;overflow:hidden}
-.add-pill{position:absolute;z-index:2;right:8px;bottom:-18px;height:44px;min-width:84px;padding:0 18px;border:3px solid #fff;border-radius:999px;background:#F0287A;color:#fff;font-size:16px;font-weight:800;line-height:1;box-shadow:0 2px 8px rgba(74,35,51,.18);-webkit-tap-highlight-color:transparent;transition:transform .1s ease-out}
-button.add-pill:active{transform:scale(.95)}
-.stepper-pill{display:flex;align-items:center;justify-content:space-between;padding:0;min-width:96px}
-.stepper-pill button{width:44px;height:44px;margin:-3px 0;border:0;background:transparent;color:#fff;font-size:20px;font-weight:800;padding:0;display:grid;place-items:center;-webkit-tap-highlight-color:transparent}
-.stepper-pill span{font-size:16px;font-weight:800;min-width:12px;text-align:center}
-.card-body{padding:24px 2px 0;min-width:0}
-.card-row1{display:flex;align-items:center;gap:6px;min-width:0}
-.card-row1 .vm{flex:none}
-.card-row1 strong{min-width:0;font-size:17px;line-height:1.25;font-weight:800;color:#1F1A1C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-row2{display:flex;align-items:center;gap:7px;margin-top:6px;min-width:0}
-.price-chip{flex:none;background:#1E8E3E;color:#fff;font-size:14px;font-weight:800;line-height:1;padding:5px 8px;border-radius:8px}
-.divider{flex:none;width:1px;height:16px;background:#D9D3D6}
-.rating{display:inline-flex;align-items:center;gap:3px;min-width:0;font-size:14px;font-weight:700;color:#3D3739;white-space:nowrap;overflow:hidden}
-.rating svg{flex:none}
-.card-row3,.card-row4{color:#6B6467;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-row3{font-size:14px;margin-top:6px}
-.card-row4{font-size:13px;margin-top:3px}
-@media (max-width:340px){.card-row3{font-size:12.5px}.card-row1 strong{font-size:16px}.card-row2{gap:5px}.rating{font-size:13px}.price-chip{padding:5px 6px}}
-.sk{background:#EEEBEC;border-radius:8px;position:relative;overflow:hidden}
-.sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:sk-shimmer 1.1s ease-in-out infinite}
-.skeleton .card-img.sk{background:#EEEBEC;border-radius:16px}
-.sk-line{height:14px;margin-top:8px}
-@keyframes sk-shimmer{to{transform:translateX(100%)}}
-.listing-cart{position:absolute;z-index:5;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));height:56px;border:0;border-radius:16px;background:#1F1A1C;color:#fff;font-size:16px;font-weight:800;box-shadow:0 10px 24px rgba(31,26,28,.28)}
-@media (prefers-reduced-motion:reduce){.sk::after{animation:none}.rest-card,.add-pill{transition:none}}
-`;

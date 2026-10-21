@@ -81,7 +81,6 @@ export default function InstallPrompt() {
 
   return (
     <div className="install-banner" role="dialog" aria-label="Install app">
-      <style>{INSTALL_STYLES}</style>
       <div className="install-banner-text">
         {mode === "android" ? (
           <strong>Add Taste of India to your home screen</strong>
@@ -100,11 +99,3 @@ export default function InstallPrompt() {
     </div>
   );
 }
-
-const INSTALL_STYLES = String.raw`
-.install-banner{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));width:min(366px,calc(100% - 24px));display:flex;align-items:center;gap:10px;background:#1F1A1C;color:#fff;border-radius:16px;padding:10px 10px 10px 16px;font:600 13px/1.3 "Figtree",system-ui,sans-serif;box-shadow:0 10px 30px rgba(31,26,28,.35);-webkit-user-select:none;user-select:none}
-.install-banner-text{flex:1}
-.install-banner button{border:0;font:inherit;cursor:pointer}
-.install-banner-action{background:#D81B60;color:#fff;border-radius:999px;min-height:36px;padding:0 16px;font-weight:800}
-.install-banner-close{background:transparent;color:#fff;width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1;opacity:.75}
-`;
