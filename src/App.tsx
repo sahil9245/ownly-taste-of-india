@@ -3,7 +3,7 @@ import { geoMercator, geoPath } from "d3-geo";
 import type { ExtendedFeature, ExtendedFeatureCollection, GeoGeometryObjects } from "d3-geo";
 import indiaStates from "./data/india-states.json";
 import DishListing from "./DishListing";
-import DishImage, { DISH_IMAGE_STYLES, useImageIfExists } from "./DishImage";
+import DishImage, { DISH_IMAGE_STYLES } from "./DishImage";
 import { dishImagePath, slugify } from "./data/dishListings";
 
 type Dish = { name: string; gem?: boolean };
@@ -11,8 +11,6 @@ type StateData = {
   name: string;
   tagline: string;
   image?: string;
-  pinImage?: string;
-  pinEmoji?: string;
   dishes: Dish[];
 };
 type Screen =
@@ -28,8 +26,6 @@ const DATA = {
       name: "Karnataka",
       tagline: "Ragi, rice and a coastline full of spice.",
       image: "",
-      pinImage: "/images/pins/karnataka.png",
-      pinEmoji: "🥞",
       dishes: [
         { name: "Masala dosa" },
         { name: "Bisi bele bath" },
@@ -44,8 +40,6 @@ const DATA = {
       name: "Kerala",
       tagline: "Coconut, curry leaves and slow backwater simmers.",
       image: "",
-      pinImage: "/images/pins/kerala.png",
-      pinEmoji: "🥥",
       dishes: [
         { name: "Appam with stew" },
         { name: "Kerala parotta & beef fry" },
@@ -60,8 +54,6 @@ const DATA = {
       name: "Andhra Pradesh",
       tagline: "Fiery, tangy and unapologetically bold.",
       image: "",
-      pinImage: "/images/pins/andhra-pradesh.png",
-      pinEmoji: "🌶️",
       dishes: [
         { name: "Andhra meals" },
         { name: "Gongura mutton", gem: true },
@@ -75,8 +67,6 @@ const DATA = {
       name: "Telangana",
       tagline: "Nawabi kitchens and Deccan chai.",
       image: "",
-      pinImage: "/images/pins/telangana.png",
-      pinEmoji: "🍲",
       dishes: [
         { name: "Hyderabadi dum biryani" },
         { name: "Haleem (seasonal)", gem: true },
@@ -90,8 +80,6 @@ const DATA = {
       name: "Tamil Nadu",
       tagline: "Temple-town breakfasts and Chettinad pepper.",
       image: "",
-      pinImage: "/images/pins/tamil-nadu.png",
-      pinEmoji: "🍚",
       dishes: [
         { name: "Chettinad chicken" },
         { name: "Kothu parotta", gem: true },
@@ -105,8 +93,6 @@ const DATA = {
       name: "Punjab",
       tagline: "Butter, tandoor and big-hearted portions.",
       image: "",
-      pinImage: "/images/pins/punjab.png",
-      pinEmoji: "🍛",
       dishes: [
         { name: "Butter chicken" },
         { name: "Chole bhature" },
@@ -120,8 +106,6 @@ const DATA = {
       name: "Maharashtra",
       tagline: "Street-smart snacks and Kolhapuri heat.",
       image: "",
-      pinImage: "/images/pins/maharashtra.png",
-      pinEmoji: "🍔",
       dishes: [
         { name: "Vada pav" },
         { name: "Misal pav", gem: true },
@@ -134,8 +118,6 @@ const DATA = {
       name: "West Bengal",
       tagline: "Mustard, fish and always a sweet ending.",
       image: "",
-      pinImage: "/images/pins/west-bengal.png",
-      pinEmoji: "🐟",
       dishes: [
         { name: "Kosha mangsho", gem: true },
         { name: "Kolkata biryani" },
@@ -148,8 +130,6 @@ const DATA = {
       name: "Uttar Pradesh",
       tagline: "Slow-cooked Awadhi elegance from Lucknow.",
       image: "",
-      pinImage: "/images/pins/uttar-pradesh.png",
-      pinEmoji: "🍢",
       dishes: [
         { name: "Galouti kebab", gem: true },
         { name: "Awadhi biryani" },
@@ -160,8 +140,6 @@ const DATA = {
       name: "Gujarat",
       tagline: "Sweet, savoury and served on a thali.",
       image: "",
-      pinImage: "/images/pins/gujarat.png",
-      pinEmoji: "🍱",
       dishes: [{ name: "Gujarati thali" }, { name: "Khaman dhokla" }],
     },
   } satisfies Record<string, StateData>,
@@ -493,9 +471,9 @@ type MapProps = {
 
 const SHEET_MAX_RATIO = 0.85;
 const WELCOME_H_GUESS = 100;
-const PIN_W = 44;
-const PIN_H = 56;
-const PIN_HEAD_Y = 34;
+const PIN_W = 26;
+const PIN_H = 34;
+const PIN_BOX = 44;
 const SELECTED_SCALE = 1.15;
 const LABEL_H = 19;
 const LABEL_GAP = 4;
@@ -504,11 +482,11 @@ const LABEL_BLEED = 6;
 
 // [longitude, latitude] of each pin, tuned to sit inside its state without crowding neighbours.
 const PIN_COORDS: Record<string, [number, number]> = {
-  KA: [76.0, 15.6],
-  KL: [75.8, 11.4],
-  TN: [79.75, 10.3],
-  AP: [79.9, 14.4],
-  TG: [79.6, 18.8],
+  KA: [75.9, 14.6],
+  KL: [76.25, 10.0],
+  TN: [79.0, 10.9],
+  AP: [79.1, 14.6],
+  TG: [78.7, 18.2],
   MH: [75.8, 20.6],
   GJ: [71.5, 22.6],
   PB: [75.4, 30.8],
@@ -551,7 +529,6 @@ function buildGeo(w: number, h: number): MapGeo {
   const ps = Math.min(1, Math.max(0.85, w / 359));
   const pw = PIN_W * ps;
   const ph = PIN_H * ps;
-  const hy = PIN_HEAD_Y * ps;
   const projection = geoMercator().fitSize([w, h], GEO);
   const path = geoPath(projection);
   const paths = GEO.features.map((feature) => ({
@@ -563,60 +540,49 @@ function buildGeo(w: number, h: number): MapGeo {
 
   const codes = Object.keys(PIN_COORDS);
   const pins: Record<string, PinPlace> = {};
-  const pinRects: Record<string, Rect[]> = {};
+  const pinRects: Record<string, Rect> = {};
   for (const code of codes) {
     const [x, y] = projection(PIN_COORDS[code]) ?? [0, 0];
     pins[code] = { x, y, side: "r", dy: 0, labelW: labelWidth(DATA.states[code as keyof typeof DATA.states].name) };
-    pinRects[code] = [
-      { l: x - pw / 2 - 2, r: x + pw / 2 + 2, t: y - ph - 2, b: y - ph + pw + 2 },
-      { l: x - pw * 0.15, r: x + pw * 0.15, t: y - ph + pw, b: y + 1 },
-    ];
+    pinRects[code] = { l: x - (pw * SELECTED_SCALE) / 2 - 1, r: x + (pw * SELECTED_SCALE) / 2 + 1, t: y - ph * SELECTED_SCALE - 1, b: y + 1 };
   }
 
   const labelRect = (p: PinPlace, side: "l" | "r", dy: number): Rect => {
-    const cy = p.y - hy + dy;
+    const cy = p.y - ph / 2 + dy;
     const l = side === "r" ? p.x + pw / 2 + LABEL_GAP : p.x - pw / 2 - LABEL_GAP - p.labelW;
     return { l, r: l + p.labelW, t: cy - LABEL_H / 2, b: cy + LABEL_H / 2 };
   };
 
-  // Preferred spots first: right of the pin, then left, then nudged further up or down.
-  const candidates: ["l" | "r", number][] = [];
-  for (const dy of [0, -4, 4, -8, 8, -12, 12, -16, 16, -20, 20, -24, 24, -28, 28, -32, 32, -36, 36]) candidates.push(["r", dy], ["l", dy]);
-  const hitsPin = (rect: Rect, code: string) => codes.some((other) => other !== code && pinRects[other].some((r) => overlaps(rect, r)));
-  const roomy = (code: string) =>
-    candidates.filter(([side, dy]) => {
-      const rect = labelRect(pins[code], side, dy);
-      return rect.l >= -LABEL_BLEED && rect.r <= w + LABEL_BLEED && !hitsPin(rect, code);
-    }).length;
-  const options = Object.fromEntries(codes.map((code) => [code, roomy(code)]));
-  const order = [...codes].sort((a, b) => options[a] - options[b] || pins[a].y - pins[b].y);
   const placed: Rect[] = [];
-  const choice: ["l" | "r", number][] = [];
-  let budget = 20000;
-  const solve = (i: number): boolean => {
-    if (i === order.length) return true;
-    const code = order[i];
-    for (const cand of candidates) {
-      if (budget-- <= 0) return false;
-      const rect = labelRect(pins[code], cand[0], cand[1]);
-      if (rect.l < -LABEL_BLEED || rect.r > w + LABEL_BLEED) continue;
-      if (hitsPin(rect, code) || placed.some((other) => overlaps(rect, other))) continue;
-      placed.push(rect);
-      choice[i] = cand;
-      if (solve(i + 1)) return true;
-      placed.pop();
-    }
-    return false;
-  };
-  const labelsFit = solve(0);
-  order.forEach((code, i) => {
+  let labelsFit = true;
+  // Preferred spots first: right of the pin, then left, then nudged further up or down.
+  const candidates: ["l" | "r", number][] = [
+    ["r", 0], ["r", -9], ["r", 9],
+    ["l", 0], ["l", -9], ["l", 9],
+    ["r", -18], ["l", -18], ["r", 18], ["l", 18],
+    ["r", -27], ["l", -27], ["r", 27], ["l", 27],
+  ];
+  for (const code of [...codes].sort((a, b) => pins[a].y - pins[b].y)) {
     const p = pins[code];
-    const spot = labelsFit ? choice[i] : candidates.find(([side, dy]) => !hitsPin(labelRect(p, side, dy), code));
-    if (spot) {
-      p.side = spot[0];
-      p.dy = spot[1];
+    const free = candidates.find(([side, dy]) => {
+      const rect = labelRect(p, side, dy);
+      if (rect.l < -LABEL_BLEED || rect.r > w + LABEL_BLEED) return false;
+      if (placed.some((other) => overlaps(rect, other))) return false;
+      return !codes.some((other) => overlaps(rect, pinRects[other]));
+    });
+    if (free) {
+      p.side = free[0];
+      p.dy = free[1];
+      placed.push(labelRect(p, free[0], free[1]));
+    } else {
+      labelsFit = false;
+      const room = candidates.find(([side, dy]) => !codes.some((other) => overlaps(labelRect(p, side, dy), pinRects[other])));
+      if (room) {
+        p.side = room[0];
+        p.dy = room[1];
+      }
     }
-  });
+  }
   return { ps, paths, pins, labelsFit, top: bounds[0][1] };
 }
 
@@ -734,15 +700,12 @@ function SurpriseButton({ spinning, onSpin }: { spinning: boolean; onSpin: () =>
   );
 }
 
-function PinIcon({ scale, image, emoji }: { scale: number; image: string; emoji: string }) {
-  const url = useImageIfExists(image);
+function PinIcon({ scale }: { scale: number }) {
   return (
-    <span className="pin-icon" style={{ "--ps": scale } as React.CSSProperties} aria-hidden="true">
-      <svg width={PIN_W} height={PIN_H} viewBox="0 0 44 56" focusable="false">
-        <path d="M22 54.5C22 54.5 1.5 36.5 1.5 22C1.5 10.7 10.7 1.5 22 1.5S42.5 10.7 42.5 22C42.5 36.5 22 54.5 22 54.5Z" strokeWidth="2.5" strokeLinejoin="round" />
-      </svg>
-      <span className="pin-disc">{url ? <img src={url} alt="" draggable={false} /> : <i>{emoji}</i>}</span>
-    </span>
+    <svg className="pin-icon" width={PIN_W * scale} height={PIN_H * scale} viewBox="0 0 26 34" aria-hidden="true" focusable="false">
+      <path d="M13 33C13 33 2 21 2 12.5C2 6.4 6.9 1.5 13 1.5S24 6.4 24 12.5C24 21 13 33 13 33Z" strokeWidth="2" strokeLinejoin="round" />
+      <circle cx="13" cy="12.5" r="4.2" fill="#fff" />
+    </svg>
   );
 }
 
@@ -772,26 +735,25 @@ function IndiaMap({
         </g>
       </svg>
       {ordered.map((code) => {
-        const state: StateData = DATA.states[code as keyof typeof DATA.states];
-        const name = state.name;
+        const name = DATA.states[code as keyof typeof DATA.states].name;
         const pin = geo.pins[code];
         const isSelected = selected === code;
-        const labelTop = PIN_H - PIN_HEAD_Y * geo.ps + pin.dy - LABEL_H / 2;
+        const labelTop = PIN_BOX - (PIN_H * geo.ps) / 2 + pin.dy - LABEL_H / 2;
         const labelStyle: React.CSSProperties =
           pin.side === "r"
-            ? { left: PIN_W / 2 + (PIN_W * geo.ps) / 2 + LABEL_GAP, top: labelTop }
-            : { right: PIN_W / 2 + (PIN_W * geo.ps) / 2 + LABEL_GAP, top: labelTop };
+            ? { left: PIN_BOX / 2 + (PIN_W * geo.ps) / 2 + LABEL_GAP, top: labelTop }
+            : { right: PIN_BOX / 2 + (PIN_W * geo.ps) / 2 + LABEL_GAP, top: labelTop };
         return (
           <button
             type="button"
             key={code}
             className={`map-pin${isSelected ? " selected" : ""}`}
-            style={{ left: pin.x - PIN_W / 2, top: pin.y - PIN_H }}
+            style={{ left: pin.x - PIN_BOX / 2, top: pin.y - PIN_BOX }}
             aria-label={`${name} – explore its food`}
             aria-pressed={isSelected}
             onClick={() => onSelect(code)}
           >
-            <PinIcon scale={geo.ps} image={state.pinImage ?? ""} emoji={state.pinEmoji ?? ""} />
+            <PinIcon scale={geo.ps} />
             <b style={labelStyle}>{name}</b>
           </button>
         );
@@ -1199,10 +1161,8 @@ button:focus-visible{outline:3px solid #FFB300;outline-offset:2px}
 .map-stage{flex:1;min-height:0;position:relative;overflow:hidden;background:#FFF7FA;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .map-fit{position:absolute;left:8px;right:8px;top:0;bottom:calc(var(--welcome-h,0px) + 4px)}.map-canvas{position:absolute;inset:0;transition:transform .25s ease-out}.map-svg{position:absolute;left:0;top:0;display:block;overflow:visible}
 .state-shape{fill:#ECE5E8;stroke:#fff;stroke-width:.8px;stroke-linejoin:round;transition:fill .15s ease-out;pointer-events:none}.state-shape.live{fill:#F8D2E1;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}.state-shape.live.selected{fill:#F08DB4}
-.map-pin{position:absolute;width:44px;height:56px;padding:0;border:0;border-radius:12px;background:transparent;display:flex;align-items:flex-end;justify-content:center;z-index:2;outline:none;-webkit-tap-highlight-color:transparent}.map-pin:focus{outline:none}.map-pin:focus-visible{outline:2px solid #1F1A1C;outline-offset:1px}
-.pin-icon{position:relative;display:block;width:44px;height:56px;--ps:1;filter:drop-shadow(0 3px 3px rgba(74,35,51,.35));transform:scale(var(--ps));transform-origin:50% 100%;transition:transform .12s ease-out;pointer-events:none}.pin-icon svg{display:block;fill:#D81B60;stroke:#fff;transition:fill .15s ease-out}
-.pin-disc{position:absolute;left:6px;top:6px;width:32px;height:32px;border-radius:50%;background:#fff;overflow:hidden;display:grid;place-items:center;transition:box-shadow .15s ease-out}.pin-disc img{width:100%;height:100%;object-fit:cover;display:block}.pin-disc i{font-style:normal;font-size:20px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
-.map-pin.selected{z-index:4}.map-pin.selected .pin-icon{transform:scale(calc(var(--ps) * 1.15))}.map-pin.selected .pin-icon svg{fill:#8E0F3F}.map-pin.selected .pin-disc{box-shadow:0 0 0 1.5px #F4A3C0}
+.map-pin{position:absolute;width:44px;height:44px;padding:0;border:0;border-radius:12px;background:transparent;display:flex;align-items:flex-end;justify-content:center;z-index:2;outline:none;-webkit-tap-highlight-color:transparent}.map-pin:focus{outline:none}.map-pin:focus-visible{outline:2px solid #1F1A1C;outline-offset:1px}
+.pin-icon{display:block;fill:#D81B60;stroke:#fff;filter:drop-shadow(0 2px 2px rgba(74,35,51,.35));transform-origin:50% 100%;transition:transform .12s ease-out,fill .15s ease-out;pointer-events:none}.map-pin.selected{z-index:4}.map-pin.selected .pin-icon{fill:#8E0F3F;transform:scale(1.15)}
 .map-pin>b{position:absolute;box-sizing:border-box;height:19px;display:flex;align-items:center;padding:0 8px;background:#fff;border:1px solid #E8DDE1;border-radius:999px;color:#4E484B;font-size:10px;font-weight:700;line-height:1;white-space:nowrap;box-shadow:0 2px 6px rgba(75,32,50,.14);pointer-events:none;transition:background .15s ease-out,color .15s ease-out}.map-pin.selected>b{background:#8E0F3F;border-color:#8E0F3F;color:#fff}.no-labels .map-pin:not(.selected):not(.highlight)>b{display:none}
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;max-height:85%;background:#fff;border-radius:28px 28px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(74,35,51,.14);transform:translateY(100%);visibility:hidden;transition:transform .25s ease-out,height .2s ease-out,visibility 0s linear .25s}.sheet.open{transform:none;visibility:visible;transition:transform .25s ease-out,height .2s ease-out,visibility 0s}.sheet.snap{transition:transform .25s ease-out,visibility 0s!important}
 .sheet-inner{display:flex;flex-direction:column;max-height:var(--sheet-max,85vh)}

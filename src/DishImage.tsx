@@ -16,7 +16,7 @@ function imageExists(src: string) {
   return probe;
 }
 
-export function useImageIfExists(src: string) {
+function useImageIfExists(src: string) {
   const [ok, setOk] = useState<boolean | null>(null);
   useEffect(() => {
     if (!src) return;
