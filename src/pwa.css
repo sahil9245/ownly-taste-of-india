@@ -13,14 +13,10 @@ html {
 html body .map-pin,
 html body button,
 html body .dish-card,
-html body .daily-card,
-html body .hero-card,
-html body .state-list-card,
+html body .grid-card,
 html body .result-card,
-html body .region-card,
 html body .restaurant-row,
 html body .chip,
-html body .bottom-nav,
 html body .segment,
 html body .map-stage {
   -webkit-user-select: none;
@@ -28,46 +24,26 @@ html body .map-stage {
   -webkit-touch-callout: none;
 }
 
-html body .home-scroll,
+html body .home-screen,
 html body .sheet-scroll,
 html body .detail-scroll,
-html body .regions-scroll,
-html body .state-list,
+html body .state-grid,
 html body .dish-row,
 html body .chips {
   overscroll-behavior: none;
 }
 
 /* Safe areas (no-ops where the inset is 0, e.g. desktop) */
-html body .home-header {
-  height: calc(76px + env(safe-area-inset-top));
-  padding-top: calc(16px + env(safe-area-inset-top));
-}
-
 html body .map-header {
   padding-top: calc(15px + env(safe-area-inset-top));
-}
-
-html body .regions-header {
-  min-height: calc(100px + env(safe-area-inset-top));
-  padding-top: calc(16px + env(safe-area-inset-top));
 }
 
 html body .hero-back {
   top: calc(16px + env(safe-area-inset-top));
 }
 
-html body .bottom-nav {
-  height: calc(72px + env(safe-area-inset-bottom));
-  padding-bottom: calc(5px + env(safe-area-inset-bottom));
-}
-
 html body .detail-scroll {
   padding-bottom: calc(100px + env(safe-area-inset-bottom));
-}
-
-html body .regions-scroll {
-  padding-bottom: calc(50px + env(safe-area-inset-bottom));
 }
 
 html body .cart-bar {

@@ -23,7 +23,7 @@ react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'india-map-reference.png'],
+        includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png'],
         manifest: {
           id: '/',
           name: 'Ownly – Taste of India',
@@ -61,6 +61,11 @@ react(),
                 expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
                 cacheableResponse: { statuses: [0, 200] },
               },
+            },
+            {
+              urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/images/dishes/'),
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'dish-listing-photos', cacheableResponse: { statuses: [200] } },
             },
             {
               urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
