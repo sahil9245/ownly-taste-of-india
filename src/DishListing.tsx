@@ -1,37 +1,10 @@
 import { useEffect, useState } from "react";
+import DishImage from "./DishImage";
 import type { Dispatch, SetStateAction } from "react";
 import { MAX_LISTINGS, formatCount, getListings, slugify } from "./data/dishListings";
 import type { Listing } from "./data/dishListings";
 
 type Cart = Record<string, number>;
-
-const probes = new Map<string, Promise<boolean>>();
-
-function imageExists(src: string) {
-  let probe = probes.get(src);
-  if (!probe) {
-    probe = new Promise<boolean>((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = src;
-    });
-    probes.set(src, probe);
-  }
-  return probe;
-}
-
-function useDishImage(src: string) {
-  const [ok, setOk] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
-    imageExists(src).then((exists) => alive && setOk(exists));
-    return () => {
-      alive = false;
-    };
-  }, [src]);
-  return ok ? src : null;
-}
 
 function VegMark({ veg }: { veg: boolean }) {
   const color = veg ? "#1E8E3E" : "#B3261E";
@@ -51,16 +24,6 @@ function StarMark() {
   );
 }
 
-function PlateMark() {
-  return (
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M3 4v6M5 4v6M4 10v10M20 4v16M18 4v7h2" />
-    </svg>
-  );
-}
-
 function BackMark() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -71,12 +34,11 @@ function BackMark() {
 }
 
 function RestaurantCard({ listing, qty, onQty }: { listing: Listing & { dishName: string }; qty: number; onQty: (amount: number) => void }) {
-  const src = useDishImage(listing.image);
   return (
     <article className="rest-card">
       <button type="button" className="card-hit" aria-label={`${listing.name}, ₹${listing.price}`} />
       <div className="card-media">
-        <div className="card-img">{src ? <img src={src} alt="" draggable={false} /> : <PlateMark />}</div>
+        <div className="card-img"><DishImage src={listing.image} /></div>
         {qty === 0 ? (
           <button type="button" className="add-pill" onClick={() => onQty(1)} aria-label={`Add ${listing.name}`}>Add</button>
         ) : (
@@ -191,8 +153,7 @@ const LISTING_STYLES = String.raw`
 .rest-card:has(.card-hit:active){transform:scale(.98)}
 .card-hit{position:absolute;inset:0;z-index:1;border:0;padding:0;background:transparent;border-radius:16px;-webkit-tap-highlight-color:transparent}
 .card-media{position:relative}
-.card-img{aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:#FDE7F0;color:#E58AAE;display:grid;place-items:center}
-.card-img img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img{aspect-ratio:1/1;border-radius:16px;overflow:hidden}
 .add-pill{position:absolute;z-index:2;right:8px;bottom:-18px;height:44px;min-width:84px;padding:0 18px;border:3px solid #fff;border-radius:999px;background:#F0287A;color:#fff;font-size:16px;font-weight:800;line-height:1;box-shadow:0 2px 8px rgba(74,35,51,.18);-webkit-tap-highlight-color:transparent;transition:transform .1s ease-out}
 button.add-pill:active{transform:scale(.95)}
 .stepper-pill{display:flex;align-items:center;justify-content:space-between;padding:0;min-width:96px}

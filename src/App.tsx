@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { ExtendedFeature, ExtendedFeatureCollection, GeoGeometryObjects } from "d3-geo";
 import indiaStates from "./data/india-states.json";
 import DishListing from "./DishListing";
-import { slugify } from "./data/dishListings";
+import DishImage, { DISH_IMAGE_STYLES } from "./DishImage";
+import { dishImagePath, slugify } from "./data/dishListings";
 
 type Dish = { name: string; gem?: boolean };
 type StateData = {
@@ -142,20 +143,6 @@ const DATA = {
       dishes: [{ name: "Gujarati thali" }, { name: "Khaman dhokla" }],
     },
   } satisfies Record<string, StateData>,
-  images: {
-    dosa:
-      "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-    bananaLeaf:
-      "https://images.unsplash.com/photo-1694849789325-914b71ab4075?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-    feast:
-      "https://images.unsplash.com/photo-1542367592-8849eb950fd8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-    bowls:
-      "https://images.unsplash.com/photo-1712757248842-04f6e3844374?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-    thali:
-      "https://images.unsplash.com/photo-1567337710282-00832b415979?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-    spices:
-      "https://images.unsplash.com/photo-1486548730767-5c679e8eda6b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=82&w=1080",
-  },
   map: [
     ["JK", "Jammu & Kashmir", 2, 0],
     ["PB", "Punjab", 1, 1],
@@ -195,13 +182,6 @@ const STORIES: Record<string, string> = {
     "Soft, mashed tapioca paired with a fiery red fish curry. A toddy-shop classic from Kerala that tastes like home to many Malayalis.",
 };
 
-const FOOD_PHOTOS = [DATA.images.dosa, DATA.images.bananaLeaf, DATA.images.feast, DATA.images.bowls, DATA.images.thali];
-
-function dishPhoto(name: string, stateCode = "") {
-  const seed = `${stateCode}${name}`.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
-  return FOOD_PHOTOS[seed % FOOD_PHOTOS.length];
-}
-
 function Icon({
   name,
   size = 20,
@@ -222,20 +202,10 @@ function Icon({
   );
 }
 
-function Photo({
-  label = "Regional Indian dish",
-  src,
-  warm = false,
-  large = false,
-}: {
-  label?: string;
-  src?: string;
-  warm?: boolean;
-  large?: boolean;
-}) {
+function Photo({ label = "", src = "", large = false }: { label?: string; src?: string; large?: boolean }) {
   return (
-    <div className={`photo ${warm ? "warm" : ""} ${large ? "large" : ""}`}>
-      {src ? <img src={src} alt={label} /> : <><Icon name="plate" size={large ? 42 : 28} /><span>{label}</span></>}
+    <div className={`photo ${large ? "large" : ""}`}>
+      <DishImage src={src} alt={label} size={large ? 42 : 36} />
     </div>
   );
 }
@@ -500,8 +470,7 @@ type MapProps = {
 };
 
 const SHEET_MAX_RATIO = 0.85;
-const WELCOME_H_GUESS = 230;
-const COMPACT_SCREEN_H = 600;
+const WELCOME_H_GUESS = 100;
 const PIN_W = 26;
 const PIN_H = 34;
 const PIN_BOX = 44;
@@ -711,7 +680,6 @@ function MapScreen(props: MapProps) {
         open={open || welcome}
         welcome={welcome}
         returnsToWelcome={viewMode === "map"}
-        compact={!!dims && dims.screenH < COMPACT_SCREEN_H}
         onHeight={setSheetH}
         onWelcomeHeight={setWelcomeH}
         votes={props.votes}
@@ -794,15 +762,6 @@ function IndiaMap({
   );
 }
 
-function PlateIcon() {
-  return (
-    <svg className="plate-icon" width="44" height="44" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false">
-      <circle cx="24" cy="24" r="19" />
-      <circle cx="24" cy="24" r="11.5" />
-    </svg>
-  );
-}
-
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -854,7 +813,7 @@ function StateGrid({
             onClick={() => onSelect(code)}
           >
             <span className="grid-image">
-              {state.image ? <img src={state.image} alt="" loading="lazy" /> : <PlateIcon />}
+              <DishImage src={state.image ?? ""} />
               {gems > 0 && <span className="grid-badge">{plural(gems, "hidden gem", "hidden gems")}</span>}
             </span>
             <strong>{state.name}</strong>
@@ -871,7 +830,6 @@ type SheetProps = Pick<MapProps, "selected" | "result" | "votes" | "onClose" | "
   open: boolean;
   welcome: boolean;
   returnsToWelcome: boolean;
-  compact: boolean;
   onHeight: (height: number) => void;
   onWelcomeHeight: (height: number) => void;
 };
@@ -881,36 +839,9 @@ function Sheet(props: SheetProps) {
   const sheetRef = useRef<HTMLElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
-  const [peeked, setPeeked] = useState(false);
-  const settling = useRef(false);
-  const settleTimer = useRef(0);
-  const latest = useRef({ open, welcome, peeked, compact: props.compact, returnsToWelcome: props.returnsToWelcome, onClose, onHeight, onWelcomeHeight: props.onWelcomeHeight });
-  latest.current = { open, welcome, peeked, compact: props.compact, returnsToWelcome: props.returnsToWelcome, onClose, onHeight, onWelcomeHeight: props.onWelcomeHeight };
-  const reservesSpace = () => latest.current.welcome && latest.current.peeked === latest.current.compact;
+  const latest = useRef({ open, welcome, returnsToWelcome: props.returnsToWelcome, onClose, onHeight, onWelcomeHeight: props.onWelcomeHeight });
+  latest.current = { open, welcome, returnsToWelcome: props.returnsToWelcome, onClose, onHeight, onWelcomeHeight: props.onWelcomeHeight };
   const contentKey = welcome ? "welcome" : `${selected}-${result?.dish.name ?? ""}`;
-
-  const setPeek = useCallback((next: boolean) => {
-    const sheet = sheetRef.current;
-    if (!sheet || latest.current.peeked === next) return;
-    latest.current.peeked = next;
-    settling.current = true;
-    sheet.classList.add("follow");
-    setPeeked(next);
-    window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(() => {
-      settling.current = false;
-      sheet.classList.remove("follow");
-      const inner = innerRef.current;
-      if (inner && reservesSpace()) latest.current.onWelcomeHeight(Math.ceil(inner.getBoundingClientRect().height));
-    }, 300);
-  }, []);
-
-  const compactApplied = useRef(false);
-  useEffect(() => {
-    if (!props.compact || compactApplied.current) return;
-    compactApplied.current = true;
-    setPeek(true);
-  }, [props.compact, setPeek]);
 
   useLayoutEffect(() => {
     const sheet = sheetRef.current;
@@ -927,7 +858,7 @@ function Sheet(props: SheetProps) {
         sheet.style.height = `${h}px`;
       }
       latest.current.onHeight(h);
-      if (reservesSpace() && !settling.current) latest.current.onWelcomeHeight(h);
+      if (latest.current.welcome) latest.current.onWelcomeHeight(h);
     };
     fit(!wasOpen.current);
     wasOpen.current = open;
@@ -981,19 +912,10 @@ function Sheet(props: SheetProps) {
       }, 320);
     };
 
-    let welcomeSwipe = false;
     const onTouchStart = (event: TouchEvent) => {
-      if (!latest.current.open || event.touches.length !== 1) return;
+      if (!latest.current.open || latest.current.welcome || event.touches.length !== 1) return;
       const touch = event.touches[0];
       const target = event.target as Element;
-      welcomeSwipe = latest.current.welcome;
-      if (welcomeSwipe) {
-        startX = touch.clientX;
-        startY = touch.clientY;
-        tracking = true;
-        dragging = false;
-        return;
-      }
       const scroller = target.closest(".sheet-scroll") as HTMLElement | null;
       startX = touch.clientX;
       startY = touch.clientY;
@@ -1006,15 +928,6 @@ function Sheet(props: SheetProps) {
     const onTouchMove = (event: TouchEvent) => {
       if (!tracking) return;
       const touch = event.touches[0];
-      if (welcomeSwipe) {
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-        if (Math.abs(dy) < 14 || Math.abs(dx) > Math.abs(dy)) return;
-        tracking = false;
-        if (event.cancelable) event.preventDefault();
-        setPeek(dy > 0);
-        return;
-      }
       if (!dragging) {
         const dx = touch.clientX - startX;
         const dy = touch.clientY - startY;
@@ -1055,25 +968,19 @@ function Sheet(props: SheetProps) {
       el.removeEventListener("touchcancel", end);
       el.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [setPeek]);
+  }, []);
 
   const stateInfo = selected ? DATA.map.find(([code]) => code === selected) : undefined;
   const liveState = selected && selected in DATA.states ? DATA.states[selected as keyof typeof DATA.states] : null;
-  const stateCount = Object.keys(DATA.states).length;
-  const dishCount = Object.values(DATA.states).reduce((total, state) => total + state.dishes.length, 0);
 
   const node = welcome ? (
-    <div className={`welcome${peeked ? " peeked" : ""}`}>
-      <div className="w-fold"><div><span className="w-eyebrow">TASTE OF INDIA</span></div></div>
-      <h2>Every state has a story to serve</h2>
-      <div className="w-fold">
-        <div>
-          <p>From Kerala’s coconut curries to Punjab’s tandoor classics, explore dishes the way India eats them, state by state. Tap a pin to start.</p>
-          <div className="w-foot">
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" fill="currentColor" /><circle cx="12" cy="10" r="2.6" fill="#fff" /></svg>
-            <span>{stateCount} states · {dishCount} dishes · Delivering in Bengaluru</span>
-          </div>
-        </div>
+    <div className="welcome">
+      <span className="welcome-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" fill="currentColor" /><circle cx="12" cy="10" r="2.6" fill="#FDE7F0" /></svg>
+      </span>
+      <div className="welcome-text">
+        <strong>India’s regional food, all in one place.</strong>
+        <span>Tap a state to explore its dishes and order.</span>
       </div>
     </div>
   ) : result ? (
@@ -1086,7 +993,7 @@ function Sheet(props: SheetProps) {
       <div className="dish-row">
         {liveState.dishes.map((dish) => (
           <button type="button" className="dish-card" key={dish.name} onClick={() => props.onDish(dish, selected)}>
-            <div className="dish-image"><img src={dishPhoto(dish.name, selected)} alt="" />{dish.gem && <span>Hidden gem</span>}</div>
+            <div className="dish-image"><DishImage src={dishImagePath(dish.name)} size={36} />{dish.gem && <span>Hidden gem</span>}</div>
             <strong>{dish.name}</strong>
           </button>
         ))}
@@ -1122,16 +1029,9 @@ function Sheet(props: SheetProps) {
       aria-label={welcome ? "Welcome" : "State details"}
       aria-hidden={!open}
       inert={!open}
-      onClick={(event) => {
-        if (welcome && peeked && !(event.target as Element).closest(".grab-zone")) setPeek(false);
-      }}
     >
       <div className="sheet-inner" ref={innerRef}>
-        {welcome ? (
-          <button type="button" className="grab-zone" aria-label={peeked ? "Expand welcome" : "Minimize welcome"} aria-expanded={!peeked} onClick={() => setPeek(!peeked)}><div className="grab" /></button>
-        ) : (
-          <div className="grab-zone" aria-hidden="true"><div className="grab" /></div>
-        )}
+        <div className="grab-zone" aria-hidden="true"><div className="grab" /></div>
         <button type="button" className="sheet-close" aria-label="Close state" onClick={onClose}><Icon name="close" size={18} /></button>
         <div className="sheet-body">
           <div className="sheet-scroll" key={contentKey}>{node}</div>
@@ -1149,7 +1049,7 @@ function ResultCard({ result, onDish }: { result: { code: string; dish: Dish }; 
       <span className="eyebrow">INDIA PICKED</span>
       <h2>{state.name}</h2>
       <div className="result-card">
-        <Photo warm src={dishPhoto(result.dish.name, result.code)} label={result.dish.name} />
+        <Photo src={dishImagePath(result.dish.name)} label={result.dish.name} />
         <div><strong>{result.dish.name}</strong><p>{state.tagline}</p><b>First-try offer: [OFFER]</b></div>
       </div>
       <button type="button" className="dark-button" onClick={() => onDish(result.dish, result.code)}>See where to order</button>
@@ -1185,7 +1085,7 @@ function DishDetail({
   return (
     <div className="screen detail-screen">
       <div className="detail-hero">
-        <Photo label={dish.name} src={dishPhoto(dish.name, stateCode)} large />
+        <Photo label={dish.name} src={dishImagePath(dish.name)} large />
         <button type="button" className="circle-button hero-back" aria-label="Back" onClick={onBack}><Icon name="back" /></button>
         <span className="gem-badge">{dish.gem ? "Hidden gem" : "Regional favourite"} · {state.name}</span>
       </div>
@@ -1205,7 +1105,7 @@ function DishDetail({
             const rowQty = cart[cartKey(row)] || 0;
             return (
               <div className="restaurant-row" key={row}>
-                <div className="thumb"><img src={FOOD_PHOTOS[(row + FOOD_PHOTOS.indexOf(dishPhoto(dish.name, stateCode))) % FOOD_PHOTOS.length]} alt="" /></div>
+                <div className="thumb"><DishImage src={dishImagePath(dish.name)} size={28} /></div>
                 <div><strong>[Restaurant name]</strong><span>[Area] · [XX] min · ₹[PRICE]</span></div>
                 {rowQty === 0 ? (
                   <button type="button" className="add-button" onClick={() => changeQty(row, 1)}>Add</button>
@@ -1231,6 +1131,7 @@ function DishDetail({
 }
 
 const STYLES = String.raw`
+${DISH_IMAGE_STYLES}
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
 :root{font-family:"Figtree",sans-serif;color:#1F1A1C;background:#F5F2F3;font-synthesis:none}
 *{box-sizing:border-box}
@@ -1258,19 +1159,17 @@ button:focus-visible{outline:3px solid #FFB300;outline-offset:2px}
 .map-heading h1{font-size:20px;line-height:1.1;margin:3px 0 3px;font-weight:800}.map-heading p{font-size:11px;color:#5F5A5C;margin:0}
 .segment{display:flex;background:#F5F2F3;border-radius:999px;padding:3px;margin-top:2px}.segment button{height:44px;min-width:52px;border:0;background:transparent;border-radius:999px;font-size:12px;font-weight:700}.segment button.active{background:#fff;color:#8E0F3F}
 .map-stage{flex:1;min-height:0;position:relative;overflow:hidden;background:#FFF7FA;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.map-fit{position:absolute;left:8px;right:8px;top:8px;bottom:calc(var(--welcome-h,0px) + 8px)}.map-canvas{position:absolute;inset:0;transition:transform .25s ease-out}.map-svg{position:absolute;left:0;top:0;display:block;overflow:visible}
+.map-fit{position:absolute;left:8px;right:8px;top:0;bottom:calc(var(--welcome-h,0px) + 4px)}.map-canvas{position:absolute;inset:0;transition:transform .25s ease-out}.map-svg{position:absolute;left:0;top:0;display:block;overflow:visible}
 .state-shape{fill:#ECE5E8;stroke:#fff;stroke-width:.8px;stroke-linejoin:round;transition:fill .15s ease-out;pointer-events:none}.state-shape.live{fill:#F8D2E1;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}.state-shape.live.selected{fill:#F08DB4}
 .map-pin{position:absolute;width:44px;height:44px;padding:0;border:0;border-radius:12px;background:transparent;display:flex;align-items:flex-end;justify-content:center;z-index:2;outline:none;-webkit-tap-highlight-color:transparent}.map-pin:focus{outline:none}.map-pin:focus-visible{outline:2px solid #1F1A1C;outline-offset:1px}
 .pin-icon{display:block;fill:#D81B60;stroke:#fff;filter:drop-shadow(0 2px 2px rgba(74,35,51,.35));transform-origin:50% 100%;transition:transform .12s ease-out,fill .15s ease-out;pointer-events:none}.map-pin.selected{z-index:4}.map-pin.selected .pin-icon{fill:#8E0F3F;transform:scale(1.15)}
 .map-pin>b{position:absolute;box-sizing:border-box;height:19px;display:flex;align-items:center;padding:0 8px;background:#fff;border:1px solid #E8DDE1;border-radius:999px;color:#4E484B;font-size:10px;font-weight:700;line-height:1;white-space:nowrap;box-shadow:0 2px 6px rgba(75,32,50,.14);pointer-events:none;transition:background .15s ease-out,color .15s ease-out}.map-pin.selected>b{background:#8E0F3F;border-color:#8E0F3F;color:#fff}.no-labels .map-pin:not(.selected):not(.highlight)>b{display:none}
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;max-height:85%;background:#fff;border-radius:28px 28px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(74,35,51,.14);transform:translateY(100%);visibility:hidden;transition:transform .25s ease-out,height .2s ease-out,visibility 0s linear .25s}.sheet.open{transform:none;visibility:visible;transition:transform .25s ease-out,height .2s ease-out,visibility 0s}.sheet.snap,.sheet.follow{transition:transform .25s ease-out,visibility 0s!important}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;max-height:85%;background:#fff;border-radius:28px 28px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(74,35,51,.14);transform:translateY(100%);visibility:hidden;transition:transform .25s ease-out,height .2s ease-out,visibility 0s linear .25s}.sheet.open{transform:none;visibility:visible;transition:transform .25s ease-out,height .2s ease-out,visibility 0s}.sheet.snap{transition:transform .25s ease-out,visibility 0s!important}
 .sheet-inner{display:flex;flex-direction:column;max-height:var(--sheet-max,85vh)}
 .sheet-body{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}.sheet-scroll.out{position:absolute;left:0;right:0;top:0;overflow:hidden;flex:none;pointer-events:none;animation:sheet-out .18s ease-out forwards}@keyframes sheet-out{to{opacity:0}}
-button.grab-zone{background:none;border:0;padding:0}
 .sheet-close{transition:opacity .18s ease-out,visibility 0s}.welcome-mode .sheet-close{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease-out,visibility 0s .18s}
-.welcome h2{margin:0;font-size:22px;line-height:1.2;font-weight:800;color:#1F1A1C}.w-eyebrow{display:block;padding-bottom:6px;font-size:12px;line-height:1.2;font-weight:700;letter-spacing:1px;color:#C2185B}
-.w-fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .2s ease-out,opacity .2s ease-out,visibility 0s}.w-fold>div{overflow:hidden;min-height:0}.peeked .w-fold{grid-template-rows:0fr;opacity:0;visibility:hidden;transition:grid-template-rows .2s ease-out,opacity .2s ease-out,visibility 0s .2s}
-.welcome p{margin:8px 0 12px;font-size:15px;line-height:1.45;color:#5F5A5C}.w-foot{display:flex;align-items:center;gap:6px;font-size:13px;line-height:1.3;font-weight:600;color:#8E0F3F}.w-foot svg{flex:none}
+
+.welcome{display:flex;align-items:center;gap:12px;margin:-1px 2px 0}.welcome-icon{flex:none;width:40px;height:40px;border-radius:50%;background:#FDE7F0;color:#D81B60;display:grid;place-items:center}.welcome-text{min-width:0}.welcome-text strong{display:block;text-wrap:balance;font-size:17px;line-height:1.3;font-weight:700;color:#1F1A1C}.welcome-text span{display:block;margin-top:2px;font-size:14px;line-height:1.35;font-weight:400;color:#5F5A5C}
 .sheet.dragging{transition:none!important}.grab-zone{height:44px;margin:0 auto -8px;width:calc(100% - 128px);flex:none;display:grid;place-items:center;touch-action:none;cursor:grab}.grab{width:38px;height:4px;border-radius:99px;background:#D8D0D4}.sheet-scroll{padding:5px 18px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;flex:1 1 auto;min-height:0;animation:sheet-content .18s ease-out;scrollbar-width:none}@keyframes sheet-content{from{opacity:0;transform:translateY(7px)}}.surprise-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;min-width:44px;padding:0 26px;border:0;border-radius:999px;background:#D81B60;color:#fff;font-size:15px;font-weight:800;box-shadow:0 10px 24px rgba(216,27,96,.32),0 2px 6px rgba(74,35,51,.16)}.surprise-btn:disabled{background:#E34B83}.surprise-icon{display:grid}.surprise-icon.spinning{animation:spin-icon .9s linear infinite}@keyframes spin-icon{to{transform:rotate(-360deg)}}
 .surprise-float{position:absolute;z-index:4;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);transition:opacity .2s ease-out,visibility 0s}.sheet-open .surprise-float{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease-out,visibility 0s .2s}
 .dark-button{border:0;border-radius:14px;background:#1F1A1C;color:#fff;width:100%;height:50px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px}
