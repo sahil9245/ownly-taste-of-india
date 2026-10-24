@@ -25,7 +25,7 @@ export function slugify(text: string) {
 }
 
 export function dishImagePath(dishName: string) {
-  return `/images/dishes/${slugify(dishName)}.jpg`;
+  return `/images/dishes/${slugify(dishName)}.webp`;
 }
 
 export function formatCount(count: number) {
